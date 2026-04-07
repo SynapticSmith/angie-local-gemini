@@ -6,7 +6,7 @@ import { ErrorBoundary } from './ErrorBoundary';
 import html2canvas from 'html2canvas';
 
 // Icons
-import { Mic, MicOff, Camera, Send, Loader, Settings, Save, X, Trash2 } from 'lucide-react';
+import { Mic, MicOff, Camera, Send, Loader, Settings, Save, X, Trash2, ChevronDown } from 'lucide-react';
 
 interface ChatInterfaceProps {
     apiBaseUrl: string;
@@ -25,6 +25,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ apiBaseUrl, nonce 
     const [isStreaming, setIsStreaming] = useState(false);
     const [capturedImage, setCapturedImage] = useState<string | null>(null);
     const [isListening, setIsListening] = useState(false);
+
+    // Model Selection State
+    const [models, setModels] = useState<any[]>([]);
+    const [selectedModel, setSelectedModel] = useState<string>(() => {
+        return localStorage.getItem('angie_v2_selected_model') || 'gemini-2.5-flash-lite';
+    });
 
     // Refs
     const orchestratorRef = useRef(new MCPOrchestrator());
@@ -46,12 +52,35 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ apiBaseUrl, nonce 
                 setIsConfigured(true);
                 // Initialize Client with placeholder (server handles real key)
                 clientRef.current = new GeminiClient('server_side_key', apiBaseUrl, nonce);
+                fetchModels();
             } else {
                 setShowSettings(true);
             }
         } catch (e) {
             console.error("Config check failed", e);
         }
+    };
+
+    const fetchModels = async () => {
+        try {
+            const res = await fetch(`${apiBaseUrl}/angie/v1/models`, {
+                headers: { 'X-WP-Nonce': nonce }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.models) {
+                    setModels(data.models);
+                }
+            }
+        } catch (e) {
+            console.error("Failed to fetch models", e);
+        }
+    };
+
+    const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const val = e.target.value;
+        setSelectedModel(val);
+        localStorage.setItem('angie_v2_selected_model', val);
     };
 
     // 2. Save Settings Handler - IMPROVED ERROR HANDLING
@@ -72,6 +101,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ apiBaseUrl, nonce 
                 setIsConfigured(true);
                 setShowSettings(false);
                 clientRef.current = new GeminiClient('server_side_key', apiBaseUrl, nonce);
+                fetchModels();
                 setMessages([{ role: 'model', content: "I'm ready! How can I help you with WordPress today?" }]);
             } else {
                 // Parse error message if possible
@@ -143,7 +173,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ apiBaseUrl, nonce 
                         newMsgs[newMsgs.length - 1].content = fullResponse;
                         return newMsgs;
                     });
-                }
+                },
+                selectedModel
             );
         } catch (error) {
             setMessages(prev => [...prev, { role: 'system', content: `Error: ${error}` }]);
@@ -186,9 +217,43 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ apiBaseUrl, nonce 
             <div className="angie-floating-window">
                 {/* Header */}
                 <div className="angie-header">
-                    <div className="angie-title">
+                    <div className="angie-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span className="angie-status-dot"></span>
                         <h3>Angie V2</h3>
+                        {models.length > 0 && (
+                            <div className="angie-model-selector" style={{ position: 'relative', marginLeft: '8px' }}>
+                                <select
+                                    value={selectedModel}
+                                    onChange={handleModelChange}
+                                    style={{
+                                        appearance: 'none',
+                                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                        borderRadius: '4px',
+                                        color: '#fff',
+                                        padding: '4px 24px 4px 8px',
+                                        fontSize: '12px',
+                                        cursor: 'pointer',
+                                        outline: 'none'
+                                    }}
+                                >
+                                    {models.map((model: any) => {
+                                        // Optional: filter out models that don't support generateContent
+                                        const isGenerateSupported = model.supportedGenerationMethods?.includes('generateContent');
+                                        if (!isGenerateSupported) return null;
+
+                                        // The API returns models in the format "models/gemini-2.5-flash"
+                                        const modelId = model.name.replace('models/', '');
+                                        return (
+                                            <option key={model.name} value={modelId} style={{ color: '#000' }}>
+                                                {model.displayName || modelId}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                                <ChevronDown size={14} style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#fff' }} />
+                            </div>
+                        )}
                     </div>
                     <div className="angie-header-actions">
                         <button onClick={clearMemory} title="Clear Memory" className="angie-icon-btn"><Trash2 size={16}/></button>

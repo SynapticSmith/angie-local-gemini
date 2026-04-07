@@ -32,6 +32,12 @@ class ApiManager {
             'callback' => [$this, 'handle_save_config'],
             'permission_callback' => function() { return current_user_can('manage_options'); },
         ]);
+
+        register_rest_route('angie/v1', '/models', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_get_models'],
+            'permission_callback' => [$this, 'check_permission'],
+        ]);
     }
 
     private function get_active_api_key() {
@@ -62,6 +68,27 @@ class ApiManager {
         return ['success' => true];
     }
 
+    public function handle_get_models() {
+        $api_key = $this->get_active_api_key();
+
+        if (empty($api_key)) {
+            return new \WP_Error('no_key', 'API Key not configured in User Profile', ['status' => 500]);
+        }
+
+        $url = 'https://generativelanguage.googleapis.com/v1beta/models?key=' . $api_key;
+
+        $response = wp_remote_get($url);
+
+        if (is_wp_error($response)) {
+            return $response;
+        }
+
+        $body = wp_remote_retrieve_body($response);
+        $data = json_decode($body, true);
+
+        return rest_ensure_response($data);
+    }
+
     public function handle_generation($request) {
         $api_key = $this->get_active_api_key();
 
@@ -69,14 +96,20 @@ class ApiManager {
              return new \WP_Error('no_key', 'API Key not configured in User Profile', ['status' => 500]);
         }
 
-        $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:streamGenerateContent?key=' . $api_key;
+        $params = $request->get_json_params();
+        $model = !empty($params['model']) ? sanitize_text_field($params['model']) : 'gemini-2.5-flash-lite';
+
+        // Strip out 'models/' prefix if provided by the client
+        if (strpos($model, 'models/') === 0) {
+            $model = substr($model, 7);
+        }
+
+        $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . $model . ':streamGenerateContent?key=' . $api_key;
 
         header('Content-Type: text/event-stream');
         header('Cache-Control: no-cache');
         header('Connection: keep-alive');
         header('X-Accel-Buffering: no');
-
-        $params = $request->get_json_params();
 
         $contents = [];
         $system_instruction = null;
