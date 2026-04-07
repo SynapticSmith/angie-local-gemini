@@ -11,7 +11,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: example/angie-demo-plugin
+        working-directory: example/genie-demo-plugin
 
     steps:
     - uses: actions/checkout@v4
@@ -42,5 +42,5 @@ jobs:
     - name: Upload Plugin Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: angie-local-ai
-        path: example/angie-demo-plugin/
+        name: genie-local-ai
+        path: example/genie-demo-plugin/
