@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Angie V2 - Verification</title>
+    <script>
+        // Mock WP Localized Data
+        window.angieConfig = {
+            apiBaseUrl: 'http://localhost:8000',
+            nonce: 'mock-nonce'
+        };
+
+        // Intercept fetch to return mock models
+        const originalFetch = window.fetch;
+        window.fetch = async (...args) => {
+            const url = args[0];
+
+            // Mock config check (assume configured)
+            if (url.includes('/angie/v1/config/check')) {
+                return new Response(JSON.stringify({ has_key: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            }
+
+            // Mock models endpoint
+            if (url.includes('/angie/v1/models')) {
+                const mockModels = {
+                    models: [
+                        { name: 'models/gemini-2.5-flash', displayName: 'Gemini 2.5 Flash', supportedGenerationMethods: ['generateContent'] },
+                        { name: 'models/gemini-2.5-flash-lite', displayName: 'Gemini 2.5 Flash Lite', supportedGenerationMethods: ['generateContent'] },
+                        { name: 'models/gemini-2.5-pro', displayName: 'Gemini 2.5 Pro', supportedGenerationMethods: ['generateContent'] }
+                    ]
+                };
+                return new Response(JSON.stringify(mockModels), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            }
+
+            return originalFetch(...args);
+        };
+    </script>
+    <style>
+        body { font-family: sans-serif; background: #f0f0f1; margin: 0; padding: 20px; }
+        /* Include compiled CSS */
+    </style>
+    <link rel="stylesheet" href="out/angie-demo.css">
+</head>
+<body>
+    <div id="angie-local-root"></div>
+    <!-- Include compiled JS -->
+    <script src="out/angie-demo.js"></script>
+</body>
+</html>

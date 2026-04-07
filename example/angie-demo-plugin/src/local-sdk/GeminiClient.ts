@@ -32,12 +32,13 @@ export class GeminiClient {
         currentMessage: string,
         currentImages: string[] = [], // New: Vision Support
         tools: any[],
-        onChunk: StreamCallback
+        onChunk: StreamCallback,
+        model: string = "gemini-2.5-flash-lite"
     ): Promise<string> {
 
         // Prepare the payload
         const payload = {
-            model: "gemini-2.0-flash-exp", // Updated to latest fast model
+            model: model, // Dynamically use the selected model
             messages: [
                 ...history,
                 { role: 'user', content: currentMessage, images: currentImages }
